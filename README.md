@@ -222,6 +222,8 @@ stellar-pocketpay-contracts/
 - **Network passphrase**: `Test SDF Network ; September 2015`
 - **Friendbot** (free testnet XLM): `https://friendbot.stellar.org`
 - **Soroban Explorer**: [stellar.expert](https://stellar.expert/explorer/testnet)
+- Deployment help: see the [troubleshooting guide](docs/troubleshooting.md)
+  for common Soroban CLI, Friendbot, WASM, network, and invocation issues.
 - Always test thoroughly on testnet before considering mainnet deployment.
 - Monitor contract storage TTL and extend as needed using `soroban contract extend`.
 
