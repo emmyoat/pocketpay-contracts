@@ -49,12 +49,32 @@ cargo build --target wasm32-unknown-unknown
 
 # Optimized release build (recommended for deployment)
 cargo build --target wasm32-unknown-unknown --release
+
+# Optimized release build with an immediate WASM size report
+make build-release
 ```
 
 The compiled `.wasm` file will be at:
 ```
 target/wasm32-unknown-unknown/release/savings_vault.wasm
 ```
+
+### Contract size report
+
+Soroban contract size affects upload and deployment costs and can reveal unexpected binary growth. Use the release wrapper above to build and print the artifact size in both human-readable units and exact bytes:
+
+```text
+WASM artifact: target/wasm32-unknown-unknown/release/savings_vault.wasm
+WASM size: 5.73 KiB (5871 bytes)
+```
+
+To report the size of an existing release artifact without rebuilding it, run:
+
+```bash
+make wasm-size
+```
+
+The reporting command exits with an error and identifies the expected path when the WASM file is missing. CI pipelines should run `make build-release` (or `make wasm-size` after their release build) so contract-size changes remain visible in build logs.
 
 ---
 
