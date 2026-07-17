@@ -2,7 +2,7 @@
 //!
 //! These tests use the Soroban SDK test utilities to simulate
 //! on-chain interactions in an isolated environment.
-// mod test_helpers;
+mod test_helpers;
 
 use super::*;
 use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address};
