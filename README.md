@@ -1,4 +1,6 @@
 # Stellar PocketPay — Savings Vault Contract
+
+[CHANGELOG](CHANGELOG.md)
 ## Security Considerations
 
 > **This contract is for educational and testnet use.** Review the following before any mainnet deployment.
