@@ -12,7 +12,7 @@
 
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, log};
+use soroban_sdk::{contract, contractimpl, contracttype, log, token, Address, Env};
 
 // ---------------------------------------------------------------------------
 // Storage Keys
@@ -33,6 +33,8 @@ pub enum DataKey {
     UnlockTime(Address),
     /// Flag indicating the contract has been initialized.
     Initialized,
+    /// Token Address
+    Token,
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +60,7 @@ impl SavingsVault {
     ///
     /// # Panics
     /// Panics if the contract has already been initialized.
-    pub fn initialize(env: Env, admin: Address) {
+    pub fn initialize(env: Env, admin: Address, token: Address) {
         // Ensure we haven't already initialized
         if env.storage().instance().has(&DataKey::Initialized) {
             panic!("Contract is already initialized");
@@ -70,6 +72,7 @@ impl SavingsVault {
         // Persist admin & initialization flag
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Initialized, &true);
+        env.storage().instance().set(&DataKey::Token, &token);
 
         log!(&env, "Savings Vault initialized with admin: {}", admin);
     }
@@ -108,7 +111,13 @@ impl SavingsVault {
             .persistent()
             .set(&DataKey::Balance(user.clone()), &new_balance);
 
-        log!(&env, "Deposit: user={}, amount={}, new_balance={}", user, amount, new_balance);
+        log!(
+            &env,
+            "Deposit: user={}, amount={}, new_balance={}",
+            user,
+            amount,
+            new_balance
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -144,6 +153,11 @@ impl SavingsVault {
         if amount > current_balance {
             panic!("Insufficient balance");
         }
+        let token = env.storage().instance().get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token);
+        let contract_address = env.current_contract_address();
+
+        token_client.transfer(&contract_address, &user, &amount);
 
         // Update balance
         let new_balance = current_balance - amount;
@@ -151,7 +165,13 @@ impl SavingsVault {
             .persistent()
             .set(&DataKey::Balance(user.clone()), &new_balance);
 
-        log!(&env, "Withdraw: user={}, amount={}, new_balance={}", user, amount, new_balance);
+        log!(
+            &env,
+            "Withdraw: user={}, amount={}, new_balance={}",
+            user,
+            amount,
+            new_balance
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -237,7 +257,11 @@ impl SavingsVault {
         log!(
             &env,
             "Lock: user={}, amount={}, unlock_time={}, available={}, locked={}",
-            user, amount, unlock_time, new_balance, new_locked
+            user,
+            amount,
+            unlock_time,
+            new_balance,
+            new_locked
         );
     }
 
@@ -289,3 +313,5 @@ impl SavingsVault {
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod test_helpers;
