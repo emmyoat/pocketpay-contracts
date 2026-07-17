@@ -185,6 +185,8 @@ stellar-pocketpay-contracts/
         └── src/
             ├── lib.rs                  # Contract implementation
             └── test.rs                 # Unit tests
+└── docs/
+    └── pause-design.md                 # Pause / emergency stop research
 ```
 
 ---
@@ -220,6 +222,8 @@ stellar-pocketpay-contracts/
 - **Single unlock time**: Locking funds multiple times overwrites the previous unlock timestamp. A production version might use per-lock entries.
 - **No admin recovery**: There is no mechanism for the admin to recover or migrate funds.
 - **No upgrade mechanism**: The contract does not implement `upgrade()`. Consider adding this for mainnet.
+- **No pause / emergency stop**: There is no mechanism to halt operations in an emergency.
+  See [docs/pause-design.md](docs/pause-design.md) for research and trade-offs.
 
 ---
 
