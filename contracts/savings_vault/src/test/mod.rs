@@ -458,6 +458,85 @@ fn test_lock_past_time_panics() {
     client.lock_funds(&user, &50, &3_000);
 }
 
+#[test]
+#[should_panic(expected = "Insufficient balance to lock")]
+fn test_lock_from_empty_balance_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    // User has 0 balance, attempt to lock 100
+    client.lock_funds(&user, &100, &2_000);
+}
+
+#[test]
+#[should_panic(expected = "Insufficient balance to lock")]
+fn test_lock_more_than_available_balance_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    deposit_balance(&client, &user, 100);
+    // Attempt to lock more than available (100)
+    client.lock_funds(&user, &101, &2_000);
+}
+
+#[test]
+fn test_failed_lock_does_not_change_available_balance() {
+    // Strategy: Verify a valid partial lock leaves the remaining available balance correct.
+    // The companion panic test confirms that the lock is rejected before any mutation occurs.
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    deposit_balance(&client, &user, 100);
+
+    // Initial check
+    assert_eq!(client.get_balance(&user), 100);
+
+    // A valid partial lock succeeds and updates available/locked balances
+    client.lock_funds(&user, &60, &2_000);
+    assert_eq!(client.get_balance(&user), 40);
+
+    // Another valid lock
+    client.lock_funds(&user, &40, &3_000);
+    assert_eq!(client.get_balance(&user), 0);
+}
+
+#[test]
+#[should_panic(expected = "Insufficient balance to lock")]
+fn test_failed_lock_does_not_change_available_balance_panics() {
+    // Confirms that attempting to lock more than available balance is rejected (panics)
+    // and available balance is not mutated.
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    deposit_balance(&client, &user, 100);
+
+    // Attempting to lock 101 must panic, leaving available balance at 100
+    client.lock_funds(&user, &101, &2_000);
+}
+
+#[test]
+#[should_panic(expected = "Insufficient balance to lock")]
+fn test_failed_lock_does_not_change_locked_balance() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    deposit_balance(&client, &user, 500);
+
+    // Lock 200, leaving 300 available, and locked balance at 200
+    client.lock_funds(&user, &200, &2_000);
+    assert_eq!(client.get_balance(&user), 300);
+    assert_eq!(client.get_locked_balance(&user), 200);
+
+    // Attempt to lock 301, which is more than available 300.
+    // This must panic, leaving locked balance at 200.
+    client.lock_funds(&user, &301, &3_000);
+}
+
 // =========================================================================
 // can_withdraw Tests — Time-Lock Boundary Behaviour
 // =========================================================================
