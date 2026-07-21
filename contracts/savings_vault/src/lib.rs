@@ -123,6 +123,8 @@ pub enum DataKey {
     Initialized,
     /// Token Address
     Token,
+    /// Storage version marker
+    StorageVersion,
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +231,11 @@ impl SavingsVault {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage().instance().set(&DataKey::Token, &token);
+        env.storage().instance().set(&DataKey::StorageVersion, &1_u64);
+
+        // Emit initialize event
+        let topics = (symbol_short!("initialize"), admin.clone());
+        env.events().publish(topics, token.clone());
 
         // Emit initialize event
         let topics = (Symbol::new(&env, "initialize"), admin.clone());
@@ -301,9 +308,8 @@ impl SavingsVault {
     /// - If the contract has not been initialized.
     /// - If `amount` is zero or negative.
     pub fn deposit(env: Env, user: Address, amount: i128) {
-        if !env.storage().instance().has(&DataKey::Initialized) {
-            panic!("Contract not initialized");
-        }
+        Self::assert_initialized(&env);
+        Self::assert_supported_storage_version(&env);
 
         // Authorization: only the user can deposit on their own behalf
         user.require_auth();
@@ -382,9 +388,8 @@ impl SavingsVault {
     /// - If `amount` is zero or negative.
     /// - If `amount` exceeds the user's available balance.
     pub fn withdraw(env: Env, user: Address, amount: i128) {
-        if !env.storage().instance().has(&DataKey::Initialized) {
-            panic!("Contract not initialized");
-        }
+        Self::assert_initialized(&env);
+        Self::assert_supported_storage_version(&env);
 
         // Authorization
         user.require_auth();
@@ -651,9 +656,8 @@ impl SavingsVault {
     /// - If `amount` exceeds the user's available balance.
     /// - If `unlock_time` is in the past.
     pub fn lock_funds(env: Env, user: Address, amount: i128, unlock_time: u64) -> u64 {
-        if !env.storage().instance().has(&DataKey::Initialized) {
-            panic!("Contract not initialized");
-        }
+        Self::assert_initialized(&env);
+        Self::assert_supported_storage_version(&env);
 
         // Authorization
         user.require_auth();
