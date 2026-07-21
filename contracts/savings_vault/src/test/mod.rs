@@ -8,6 +8,7 @@ mod lock_read_helpers;
 mod maximum_amount_boundary;
 mod test_helpers;
 mod unauthorized_access;
+mod zero_duration_lock;
 mod withdraw_lock;
 
 use super::*;
