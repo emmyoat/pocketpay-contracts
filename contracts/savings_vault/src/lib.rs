@@ -127,6 +127,11 @@ pub enum DataKey {
     StorageVersion,
 }
 
+/// Current storage schema version.
+/// Increment this when making breaking changes to storage layout,
+/// and implement a corresponding migration in `try_migrate()`.
+pub const STORAGE_VERSION: u64 = 1;
+
 // ---------------------------------------------------------------------------
 // Contract Definition
 // ---------------------------------------------------------------------------
@@ -227,7 +232,7 @@ impl SavingsVault {
         // Require the admin to have signed this transaction
         admin.require_auth();
 
-        // Persist admin & initialization flag
+        // Persist admin, token, initialization flag, and storage version
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage().instance().set(&DataKey::Token, &token);
@@ -241,7 +246,7 @@ impl SavingsVault {
         let topics = (symbol_short!("initialize"), admin.clone());
         env.events().publish(topics, token.clone());
 
-        log!(&env, "Savings Vault initialized with admin: {}", admin);
+        log!(&env, "Savings Vault initialized with admin: {}, storage version: {}", admin, STORAGE_VERSION);
     }
 
     // -----------------------------------------------------------------------

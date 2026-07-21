@@ -205,7 +205,15 @@ stellar-pocketpay-contracts/
             └── test.rs                 # Unit tests
 └── docs/
     ├── admin-role.md                   # Admin role documentation
+    ├── architecture.md                 # Architecture overview
+    ├── contract-id-handoff.md          # Contract ID handoff guide
+    ├── deployment-environments.md      # Deployment environment config
+    ├── error-codes.md                  # Error code reference
+    ├── events.md                       # Event schema documentation
     ├── pause-design.md                 # Pause / emergency stop research
+    ├── storage-migration.md            # Storage versioning and migration guide
+    ├── storage-ttl.md                  # Storage TTL guide
+    ├── troubleshooting.md              # Troubleshooting guide
     └── upgrade-strategy.md             # Upgrade strategy research
 ```
 
