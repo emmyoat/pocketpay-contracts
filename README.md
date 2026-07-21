@@ -248,13 +248,13 @@ stellar-pocketpay-contracts/
 - Admin and initialization flags use **instance** storage (tied to contract lifetime).
 
 ### Known Limitations
-- **Internal accounting only; no real token custody**: Deposits update contract storage but do not transfer real XLM, SAC assets, or other tokens into custody. Internal balances are accounting entries and are not proof that the contract holds corresponding assets. Future SAC integration is planned to support real asset transfers and custody-backed balances.
-- **Single unlock time**: Locking funds multiple times overwrites the previous unlock timestamp. A production version might use per-lock entries.
 - **No admin recovery**: There is no mechanism for the admin to recover or migrate funds.
 - **No upgrade mechanism**: The contract does not implement `upgrade()`. See
   [docs/upgrade-strategy.md](docs/upgrade-strategy.md) for research into possible upgrade paths.
 - **No pause / emergency stop**: There is no mechanism to halt operations in an emergency.
   See [docs/pause-design.md](docs/pause-design.md) for research and trade-offs.
+- **No on-chain events**: No events are emitted for state changes (deposit, withdraw, lock, unlock). See [docs/events.md](docs/events.md) for planned event schemas.
+- **No custom error enum**: Contract uses panic strings instead of a structured error enum for off-chain callers.
 
 ---
 

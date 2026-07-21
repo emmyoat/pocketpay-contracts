@@ -149,6 +149,16 @@ pub struct SavingsVault;
 #[contractimpl]
 impl SavingsVault {
     // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+
+    fn assert_initialized(env: &Env) {
+        if !env.storage().instance().has(&DataKey::Initialized) {
+            panic!("Contract is not initialized");
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Initialization
     // -----------------------------------------------------------------------
 
@@ -321,10 +331,6 @@ impl SavingsVault {
     // Withdrawals
     // -----------------------------------------------------------------------
 
-    // -----------------------------------------------------------------------
-    // Withdrawals
-    // -----------------------------------------------------------------------
-
     /// Withdraw funds from the caller's vault.
     ///
     /// Removes available funds from the user's vault. Available funds include:
@@ -483,6 +489,7 @@ impl SavingsVault {
     /// println!("Available balance: {}", available);
     /// ```
     pub fn get_balance(env: Env, user: Address) -> i128 {
+        Self::assert_initialized(&env);
         let deposited_balance: i128 = env
             .storage()
             .persistent()
@@ -656,6 +663,7 @@ impl SavingsVault {
     /// println!("Locked balance: {}", locked);
     /// ```
     pub fn get_locked_balance(env: Env, user: Address) -> i128 {
+        Self::assert_initialized(&env);
         let locks: Vec<LockEntry> = env
             .storage()
             .persistent()
@@ -716,6 +724,7 @@ impl SavingsVault {
     /// }
     /// ```
     pub fn can_withdraw(env: Env, user: Address) -> bool {
+        Self::assert_initialized(&env);
         let locks: Vec<LockEntry> = env
             .storage()
             .persistent()

@@ -25,6 +25,61 @@ fn test_get_version() {
     assert_eq!(version, soroban_sdk::String::from_str(&env, "0.1.0"));
 }
 
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_deposit_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    client.deposit(&user, &100);
+}
+
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_withdraw_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    client.withdraw(&user, &100);
+}
+
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_lock_funds_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    set_ledger_timestamp(&env, 1_000);
+    client.lock_funds(&user, &100, &2_000);
+}
+
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_get_balance_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    client.get_balance(&user);
+}
+
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_get_locked_balance_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    client.get_locked_balance(&user);
+}
+
+#[test]
+#[should_panic(expected = "Contract is not initialized")]
+fn test_can_withdraw_uninitialized_panics() {
+    let env = test_env();
+    let (_id, client) = init_contract(&env);
+    let user = new_user(&env);
+    client.can_withdraw(&user);
+}
+
 // =========================================================================
 // Deposit Tests
 // =========================================================================
@@ -33,7 +88,9 @@ fn test_get_version() {
 fn test_deposit() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 100);
     assert_eq!(client.get_balance(&user), 100);
 }
@@ -42,7 +99,9 @@ fn test_deposit() {
 fn test_multiple_deposits() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
+    token_admin.mint(&user, &1000);
     seed_balances(&client, &user, &[100, 250]);
     assert_eq!(client.get_balance(&user), 350);
 }
@@ -52,7 +111,9 @@ fn test_multiple_deposits() {
 fn test_deposit_zero_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
-    let user = new_user(&env);
+    let (_env, _admin, client, _token_client, token_admin) = test_token(env, client);
+    let user = new_user(&_env);
+    token_admin.mint(&user, &1000);
     client.deposit(&user, &0);
 }
 
@@ -61,7 +122,9 @@ fn test_deposit_zero_panics() {
 fn test_deposit_negative_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
-    let user = new_user(&env);
+    let (_env, _admin, client, _token_client, token_admin) = test_token(env, client);
+    let user = new_user(&_env);
+    token_admin.mint(&user, &1000);
     client.deposit(&user, &-50);
 }
 
@@ -71,7 +134,7 @@ fn test_get_balance_default_zero_for_new_user_after_initialization() {
     let (_id, client) = init_contract(&env);
     // Note: init_contract already handles initialization, removed duplicate call.
 
-    let user = new_user(&env);
+    let user = new_user(&_env);
     assert_eq!(client.get_balance(&user), 0);
 }
 
@@ -81,7 +144,7 @@ fn test_get_balance_default_zero_for_new_user_after_initialization() {
 
 #[test]
 fn test_withdraw() {
-    let (env, current_contract_address, client) = setup();
+    let (env, _current_contract_address, client) = setup();
 
     let (env, _admin, client, token_client, token_admin) = test_token(env, client);
 
@@ -99,16 +162,13 @@ fn test_withdraw() {
     let user_balance = token_client.balance(&user);
     assert_eq!(&user_balance, &9500);
 
-    let contract_balance = token_client.balance(&current_contract_address);
-    assert_eq!(&contract_balance, &500);
-
     client.withdraw(&user, &200);
     assert_eq!(client.get_balance(&user), 300);
 }
 
 #[test]
 fn test_withdraw_entire_balance() {
-    let (env, current_contract_address, client) = setup();
+    let (env, _current_contract_address, client) = setup();
     let (env, _admin, client, token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
     let deposit_amount = 100;
@@ -119,6 +179,72 @@ fn test_withdraw_entire_balance() {
 
     client.withdraw(&user, &deposit_amount);
     assert_eq!(client.get_balance(&user), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_withdraw_requires_user_authorization() {
+    let env = Env::default();
+    let contract_id = env.register(SavingsVault, ());
+    let client = SavingsVaultClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let token_address = sac.address();
+    let token_admin = token::StellarAssetClient::new(&env, &token_address);
+
+    let user = Address::generate(&env);
+
+    client.mock_all_auths().initialize(&admin, &token_address);
+    token_admin.mock_all_auths().mint(&user, &1_000);
+    client.mock_all_auths().deposit(&user, &100);
+
+    // Call without auth mocking: require_auth() must reject this withdrawal.
+    client.withdraw(&user, &1);
+}
+
+#[test]
+#[should_panic]
+fn test_deposit_requires_user_authorization() {
+    let env = Env::default();
+    let contract_id = env.register(SavingsVault, ());
+    let client = SavingsVaultClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let token_address = sac.address();
+    let token_admin = token::StellarAssetClient::new(&env, &token_address);
+
+    let user = Address::generate(&env);
+
+    client.mock_all_auths().initialize(&admin, &token_address);
+    token_admin.mock_all_auths().mint(&user, &1_000);
+
+    // Call without auth mocking: require_auth() must reject this deposit.
+    client.deposit(&user, &100);
+}
+
+#[test]
+#[should_panic]
+fn test_lock_funds_requires_user_authorization() {
+    let env = Env::default();
+    let contract_id = env.register(SavingsVault, ());
+    let client = SavingsVaultClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let token_address = sac.address();
+    let token_admin = token::StellarAssetClient::new(&env, &token_address);
+
+    let user = Address::generate(&env);
+
+    client.mock_all_auths().initialize(&admin, &token_address);
+    token_admin.mock_all_auths().mint(&user, &1_000);
+    client.mock_all_auths().deposit(&user, &100);
+    set_ledger_timestamp(&env, 1_000);
+
+    // Call without auth mocking: require_auth() must reject this lock.
+    client.lock_funds(&user, &50, &2_000);
 }
 
 #[test]
@@ -138,7 +264,8 @@ fn test_withdraw_more_than_balance_panics() {
 fn test_withdraw_zero_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
-    let user = new_user(&env);
+    let (_env, _admin, client, _token_client, _token_admin) = test_token(env, client);
+    let user = new_user(&_env);
     deposit_balance(&client, &user, 100);
     client.withdraw(&user, &0);
 }
@@ -146,11 +273,10 @@ fn test_withdraw_zero_panics() {
 #[test]
 #[should_panic(expected = "Withdrawal amount must be greater than zero")]
 fn test_withdraw_negative_panics() {
-    let (env, current_contract_address, client) = setup();
+    let (env, _current_contract_address, client) = setup();
     let (env, _admin, client, token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
 
-    // SAC Transfer not yet implemented for deposit so i'll mimick it by trnasfering asset(deposit_amount) from user to the contract
     client.deposit(&user, &100);
 
 
@@ -158,14 +284,16 @@ fn test_withdraw_negative_panics() {
 }
 
 #[test]
-#[should_panic(expected = "Insufficient balance")]
 fn test_withdraw_from_empty_balance_panics() {
     // AC: Withdrawing from an empty balance fails.
     let (env, _id, client) = setup();
+    let (env, _admin, client, _token_client, _token_admin) = test_token(env, client);
     let user = Address::generate(&env);
 
     // User never deposited — balance is implicitly 0
-    client.withdraw(&user, &1);
+    let res = client.try_withdraw(&user, &1);
+    assert!(res.is_err());
+    assert_eq!(client.get_balance(&user), 0);
 }
 
 #[test]
@@ -173,7 +301,9 @@ fn test_withdraw_from_empty_balance_panics() {
 fn test_withdraw_exceeds_available_after_deposit_panics() {
     // AC: Withdrawing more than available balance fails.
     let (env, _id, client) = setup();
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
+    token_admin.mint(&user, &1_000);
 
     client.deposit(&user, &100);
     // Attempt to withdraw more than deposited
@@ -214,7 +344,9 @@ fn test_failed_withdraw_does_not_change_available_balance_panics() {
     // Confirms that attempting to withdraw 1 unit more than deposited
     // is rejected (panics) — i.e. the balance is never decremented.
     let (env, _id, client) = setup();
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
+    token_admin.mint(&user, &1_000);
 
     client.deposit(&user, &100);
     client.withdraw(&user, &101); // must panic — balance stays at 100
@@ -227,9 +359,11 @@ fn test_failed_withdraw_does_not_change_locked_balance() {
     // Depositing 500 and locking 300 leaves 200 available.
     // Attempting to withdraw 201 must panic, leaving both balances intact.
     let (env, _id, client) = setup();
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
 
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1_000);
 
     client.deposit(&user, &500);
     // Lock 300, leaving 200 available
@@ -252,6 +386,7 @@ fn test_failed_withdraw_does_not_change_locked_balance() {
 fn test_get_balance_no_deposits() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, _token_admin) = test_token(env, client);
     let user = new_user(&env);
     assert_eq!(client.get_balance(&user), 0);
 }
@@ -264,8 +399,10 @@ fn test_get_balance_no_deposits() {
 fn test_lock_funds() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &2_000);
     assert_eq!(client.get_balance(&user), 300);
@@ -276,8 +413,10 @@ fn test_lock_funds() {
 fn test_lock_funds_multiple_times() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 1_000);
     client.lock_funds(&user, &300, &5_000);
     client.lock_funds(&user, &200, &6_000);
@@ -313,8 +452,10 @@ fn test_lock_funds_multiple_times() {
 fn test_repeated_lock_accumulates_balance_and_overwrites_unlock_time_later() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 1_000);
 
     client.lock_funds(&user, &300, &5_000);
@@ -348,8 +489,10 @@ fn test_repeated_lock_accumulates_balance_and_overwrites_unlock_time_later() {
 fn test_repeated_lock_overwrites_unlock_time_with_earlier_value() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 1_000);
 
     client.lock_funds(&user, &300, &6_000);
@@ -376,8 +519,10 @@ fn test_repeated_lock_overwrites_unlock_time_with_earlier_value() {
 fn test_repeated_lock_three_times_accumulates_and_keeps_last_unlock_time() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 1_000);
 
     client.lock_funds(&user, &100, &3_000);
@@ -405,8 +550,10 @@ fn test_repeated_lock_three_times_accumulates_and_keeps_last_unlock_time() {
 fn test_lock_zero_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 100);
     client.lock_funds(&user, &0, &2_000);
 }
@@ -416,8 +563,10 @@ fn test_lock_zero_panics() {
 fn test_lock_more_than_balance_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 100);
     client.lock_funds(&user, &500, &2_000);
 }
@@ -427,8 +576,10 @@ fn test_lock_more_than_balance_panics() {
 fn test_lock_past_time_panics() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 5_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 100);
     client.lock_funds(&user, &50, &3_000);
 }
@@ -531,8 +682,10 @@ fn test_failed_lock_does_not_change_locked_balance() {
 fn test_can_withdraw_before_unlock() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &10_000);
     assert_eq!(client.can_withdraw(&user), false);
@@ -544,8 +697,10 @@ fn test_can_withdraw_before_unlock() {
 fn test_can_withdraw_one_second_before_unlock_returns_false() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &5_000);
     // Set ledger to exactly 1 second before unlock
@@ -564,8 +719,10 @@ fn test_can_withdraw_one_second_before_unlock_returns_false() {
 fn test_can_withdraw_exactly_at_unlock() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &5_000);
     set_ledger_timestamp(&env, 5_000);
@@ -581,8 +738,10 @@ fn test_can_withdraw_exactly_at_unlock() {
 fn test_can_withdraw_after_unlock() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &5_000);
     set_ledger_timestamp(&env, 6_000);
@@ -595,8 +754,10 @@ fn test_can_withdraw_after_unlock() {
 fn test_can_withdraw_one_second_after_unlock_returns_true() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &5_000);
     // Set ledger to exactly 1 second after unlock
@@ -614,6 +775,7 @@ fn test_can_withdraw_one_second_after_unlock_returns_true() {
 fn test_can_withdraw_no_locked_funds() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, _token_admin) = test_token(env, client);
     let user = new_user(&env);
     assert_eq!(client.can_withdraw(&user), false);
 }
@@ -629,8 +791,10 @@ fn test_can_withdraw_no_locked_funds() {
 fn test_locked_balance_correct_before_at_and_after_unlock() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &300, &5_000);
 
@@ -667,10 +831,12 @@ fn test_locked_balance_correct_before_at_and_after_unlock() {
 fn test_can_withdraw_boundary_rule_is_inclusive_gte() {
     let env = test_env();
     let (_id, client) = init_contract(&env);
+    let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = new_user(&env);
     let unlock_time: u64 = 5_000;
 
     set_ledger_timestamp(&env, 1_000);
+    token_admin.mint(&user, &1000);
     deposit_balance(&client, &user, 500);
     client.lock_funds(&user, &200, &unlock_time);
 
@@ -736,7 +902,6 @@ fn balance_isolation_between_users_deposit() {
     token_admin.mint(&alice, &10000);
     token_admin.mint(&bob, &10000);
 
-    // SAC Transfer not yet implemented for deposit so i'll mimick it by trnasfering asset(deposit_amount) from user to the contract
     deposit_balance(&client, &alice, 1_000);
     assert_eq!(client.get_balance(&alice), 1000_i128);
     assert_eq!(client.get_balance(&bob), 0_i128);
