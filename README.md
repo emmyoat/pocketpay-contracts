@@ -256,6 +256,8 @@ stellar-pocketpay-contracts/
 - **No on-chain events**: No events are emitted for state changes (deposit, withdraw, lock, unlock). See [docs/events.md](docs/events.md) for planned event schemas.
 - **No custom error enum**: Contract uses panic strings instead of a structured error enum for off-chain callers.
 
+- **No custom error enum**: Contract uses panic strings instead of a structured error enum for off-chain callers.
+
 ---
 
 ## Deployment Notes
