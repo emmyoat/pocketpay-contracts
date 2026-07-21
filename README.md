@@ -267,6 +267,8 @@ stellar-pocketpay-contracts/
 
 - **No custom error enum**: Contract uses panic strings instead of a structured error enum for off-chain callers.
 
+- **No custom error enum**: Contract uses panic strings instead of a structured error enum for off-chain callers.
+
 ---
 
 ## Deployment Notes
