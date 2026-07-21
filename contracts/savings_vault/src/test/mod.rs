@@ -104,7 +104,6 @@ fn test_withdraw_entire_balance() {
     let user = Address::generate(&env);
     let deposit_amount = 100;
 
-    token_admin.mint(&user, &10000);
 
     // Deposit now performs real token transfer
     client.deposit(&user, &deposit_amount);
@@ -119,7 +118,6 @@ fn test_withdraw_more_than_balance_panics() {
     let (env, _current_contract_address, client) = setup();
     let (env, _admin, client, _token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
-    token_admin.mint(&user, &10000);
 
     client.deposit(&user, &100);
 
@@ -142,12 +140,10 @@ fn test_withdraw_negative_panics() {
     let (env, current_contract_address, client) = setup();
     let (env, _admin, client, token_client, token_admin) = test_token(env, client);
     let user = Address::generate(&env);
-    token_admin.mint(&user, &10000);
 
     // SAC Transfer not yet implemented for deposit so i'll mimick it by trnasfering asset(deposit_amount) from user to the contract
     client.deposit(&user, &100);
 
-    token_client.transfer(&user, &current_contract_address, &100); // This should be removed when deposit function implements SAC
 
     client.withdraw(&user, &-10);
 }
@@ -190,7 +186,6 @@ fn test_failed_withdraw_does_not_change_available_balance() {
     let user = Address::generate(&env);
     let deposit_amount = 100;
 
-    token_admin.mint(&user, &10000);
 
     // Deposit now performs real token transfer
     client.deposit(&user, &deposit_amount);
