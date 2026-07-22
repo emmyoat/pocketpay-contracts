@@ -175,6 +175,7 @@ impl SavingsVault {
 
     // -----------------------------------------------------------------------
     // Initialization
+    // Initialization
     // -----------------------------------------------------------------------
 
     /// One-time setup. Records admin and token addresses. Panics if called twice.
